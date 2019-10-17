@@ -52,7 +52,8 @@ def classify(x, pixels, classes, method=ClassifMethod.EUC):
         raise ValueError(f'Unkown method: {method}')
 
 
-def validate(X, y, spc, class_method=ClassifMethod.EUC, eval_method=EvalMethod.SUB):
+def validate(X, y, spc, class_method=ClassifMethod.EUC,
+             eval_method=EvalMethod.SUB):
     clasif = classification_function[class_method]
     class_labels = np.unique(y)
     num_classes = len(class_labels)
@@ -86,10 +87,10 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC, eval_method=EvalMethod.S
     cm = (cm / spc) * 100
     print(cm)
 
+    ef = cm.diagonal().mean()
     plt.bar([f'Class-{i + 1}' for i in range(num_classes)],
             [cm[i, i] for i in range(num_classes)])
-    plt.title(
-        f'Eficiencia del método\n{class_method.value}: {cm.diagonal().mean()}%')
+    plt.title(f'{class_method.value} method\nEfficiency: {ef}%')
     plt.show()
 
 
