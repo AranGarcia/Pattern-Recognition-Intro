@@ -10,7 +10,7 @@ The classification methods ignore stuff such as contours and certain textures in
 This small program needs python libraries such as **numpy** and **scikit-learn** for classification. Make sure to install necessary dependencies by running:
 
 ```bash
-$ pip install requirements.txt
+$ pip install -r requirements.txt
 ```
 
 ## Usage
