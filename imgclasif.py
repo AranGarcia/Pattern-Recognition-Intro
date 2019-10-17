@@ -101,9 +101,7 @@ def _calculate_centers(x_train, y_train):
     for c in class_labels:
         x_class = x_train[y_train == c]
         # Mean of columns
-        center = np.array([np.mean(x_class[:, x_col])
-                           for x_col in range(x_class.shape[1])])
-        centers.append(center)
+        centers.append(x_class.mean(axis=0))
 
     return centers, class_labels
 
