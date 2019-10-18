@@ -63,9 +63,30 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC,
         y_train = y_test = y
         y_hat = clasif(x_test, x_train, y_train)
         cm = confusion_matrix(y_test, y_hat)
-    # elif eval_method == EvalMethod.CRS:
-    #     x_train, x_test, y_train, y_test = train_test_split(
-    #         X, y, test_size=0.5)
+    elif eval_method == EvalMethod.CRS:
+        cms = np.zeros((20, num_classes, num_classes))
+
+        for i in range(cms.shape[0]):
+            selected_x = []
+            selected_y = []
+
+            for cl in class_labels:
+                subx = X[y == cl]
+                suby = y[y == cl]
+
+                subsize = subx.shape[0] // 2
+                idxs = np.random.choice(
+                    np.arange(subsize), subsize, replace=False)
+                selected_x.extend(subx[idxs])
+                selected_y.extend(suby[idxs])
+
+            # This is the hard part
+            x_train, x_test, y_train, y_test = train_test_split(
+                np.array(selected_x), np.array(selected_y), test_size=0.5)
+
+            y_hat = clasif(x_test, x_train, y_train)
+            cms[i] = confusion_matrix(y_test, y_hat)
+        cm = cms.mean(axis=0)
 
     # elif eval_method == EvalMethod.LOO:
     #     cms = np.zeros((X.shape[0], num_classes, num_classes))
@@ -81,26 +102,28 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC,
     #
     #     cm = cms.mean(axis=0)
     else:
-        raise ValueError(f'Unkown evaluation method: {method}')
+        raise ValueError(f'Unkown evaluation method: {eval_method}')
 
     # Convert to percentage
-    cm = (cm / spc) * 100
+    cm = (cm / cm.sum(axis=0)) * 100
     print(cm)
 
     ef = cm.diagonal().mean()
     plt.bar([f'Class-{i + 1}' for i in range(num_classes)],
             [cm[i, i] for i in range(num_classes)])
-    plt.title(f'{class_method.value} method\nEfficiency: {ef}%')
+    plt.title('{} Evaluation\n{} method\nEfficiency: {}%'.format(
+        eval_method.value, class_method.value, '%.4f' % ef))
+    plt.ylabel('Class efficiency')
     plt.show()
 
 
 def _calculate_centers(x_train, y_train):
-    class_labels = np.unique(y_train)
-    centers = []
+    class_labels=np.unique(y_train)
+    centers=[]
 
     # Calculate means for all classes
     for c in class_labels:
-        x_class = x_train[y_train == c]
+        x_class=x_train[y_train == c]
         # Mean of columns
         centers.append(x_class.mean(axis=0))
 
