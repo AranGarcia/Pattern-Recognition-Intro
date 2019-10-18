@@ -12,18 +12,18 @@ def init(fname):
 def get_class_samples(centers, apc, sd=10):
     '''
     Given an image file path, this function returns neighboring pixels around
-    chosen centers, using a normal distribution around the x,y axis of the image
-    with standard deviation of sd.
+    chosen centers, using a normal distribution around the x,y axis of the
+    image with standard deviation of sd.
 
-    get_img_samples() -> pix, classes
+    get_img_samples() -> pix, classes, coords
     '''
     try:
         _IMG.shape
-    except:
+    except Exception:
         raise ValueError('Image not intialized.')
     # R, G, B
     class_samples = []
-    # positions = []
+    positions = []
     for i, c in enumerate(centers):
         # Sample coordinates
         x_arr = np.random.normal(loc=c[1], scale=sd, size=apc)
@@ -39,15 +39,15 @@ def get_class_samples(centers, apc, sd=10):
         y_arr = y_arr[in_bounds_coords]
 
         class_samples.append(_IMG[x_arr, y_arr])
-        # positions.append(np.stack((x_arr, y_arr), axis=-1))
+        positions.append(np.stack((x_arr, y_arr), axis=-1))
 
     samps = np.concatenate(class_samples)
-    samples_per_class = [arr.shape[0] for arr in class_samples]
     # Class vector (same rows as samples_per_class)
     class_vector = np.repeat(
-        np.arange(1, len(centers) + 1), [arr.shape[0] for arr in class_samples])
+        np.arange(1, len(centers) + 1),
+        [arr.shape[0] for arr in class_samples])
 
-    return samps, class_vector  # , np.concatenate(positions)
+    return samps, class_vector, np.concatenate(positions)
 
 
 def get_sample(coord):

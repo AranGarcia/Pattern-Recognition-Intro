@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from PIL import Image, ImageTk
 
@@ -17,6 +17,9 @@ class Application(ttk.Frame):
         self.render = None
         self.img_file_name = None
         self.class_centers = []
+        self.pix_samples = None
+        self.pix_classes = None
+        self.pix_coords = None
         self.x = None
 
     def create_widgets(self):
@@ -51,7 +54,8 @@ class Application(ttk.Frame):
         #   Combo: Classification method selection
         self.combo_class_method = ttk.Combobox(
             self.frame_class, textvariable=self.var_class_method,
-            state='readonly', values=self.__get_methods(imgclasif.ClassifMethod))
+            state='readonly', values=self.__get_methods(
+                imgclasif.ClassifMethod))
         self.combo_class_method.current(0)
         self.combo_class_method.grid(row=1, column=0)
         #   Label: Evaluation Method
@@ -96,7 +100,7 @@ class Application(ttk.Frame):
 
         # Image display
         #   Canvas
-        self.canvas_img = tk.Canvas(self, cursor='target')
+        self.canvas_img = tk.Canvas(self)
         self.canvas_img.bind('<Button-1>', self.__click_add_class)
         self.canvas_img.bind('<Button-3>', self.__click_add_x)
         self.canvas_img.grid(row=1, column=2)
@@ -118,15 +122,15 @@ class Application(ttk.Frame):
             return
 
         self.canvas_img.delete('all')
-
+        self.canvas_img['cursor'] = 'target'
         try:
             load = Image.open(fname)
         except FileNotFoundError:
             print('File', fname, 'doesn\'t exist.')
             return
-        imgds.init(fname
-                   )
+        imgds.init(fname)
         self.img_file_name = fname
+
         self.class_centers.clear()
         self.render = ImageTk.PhotoImage(load)
         self.canvas_img.create_image(
@@ -135,19 +139,34 @@ class Application(ttk.Frame):
 
     def __classify(self):
         '''
-        Classifies a point in the image according to previously selected classes.
+        Classifies a point in the image according to previously selected
+        classes.
         '''
         amount = self.var_apc.get()
-        if not self.img_file_name or amount <= 0 or not self.class_centers or not self.x:
+        if not self.img_file_name:
+            # TODO: Display a warning or something.
             return
-        pixs, classes = imgds.get_class_samples(
-            self.class_centers, amount)
+        if amount <= 0:
+            # TODO: Display a warning or something.
+            return
+        if self.class_centers is None:
+            # TODO: Display a warning or something.
+            return
+        if self.x is None:
+            # TODO: Display a warning or something.
+            return
+        if self.pix_samples is None or self.pix_classes is None:
+            self.pix_samples, self.pix_classes, self.pix_coords = \
+                imgds.get_class_samples(self.class_centers, amount)
+            self.__repaint_image()
         cm = self.var_class_method.get()
 
         pred = imgclasif.classify(
-            [imgds.get_sample(self.x)], pixs, classes, imgclasif.ClassifMethod(cm))
+            [imgds.get_sample(self.x)], self.pix_samples,
+            self.pix_classes, imgclasif.ClassifMethod(cm))
 
-        tk.messagebox.showinfo(f'{cm} Result', f'Pixel {self.x} belongs to class {pred}')
+        messagebox.showinfo(
+            f'{cm} Result', f'Pixel {self.x} belongs to class {pred}')
 
     def __evaluate(self):
         '''
@@ -170,8 +189,11 @@ class Application(ttk.Frame):
         '''Adds the classes to the image in the canvas'''
         self.class_centers.append((event.x, event.y))
 
-        self.canvas_img.create_text(
-            event.x, event.y, text=str(len(self.class_centers)))
+        wit = self.canvas_img.create_text(
+            event.x, event.y, text=str(len(self.class_centers)), fill='black')
+        wir = self.canvas_img.create_rectangle(self.canvas_img.bbox(wit),
+                                               fill="wheat1")
+        self.canvas_img.tag_lower(wir, wit)
 
     def __click_add_x(self, event):
         self.x = (event.x, event.y)
@@ -179,9 +201,13 @@ class Application(ttk.Frame):
 
     def __reset(self):
         self.class_centers.clear()
+        self.pix_coords = None
+        self.pix_samples = None
+        self.pix_classes = None
         self.x = None
+
         self.canvas_img.delete('all')
-        if not self.render is None:
+        if self.render is not None:
             self.canvas_img.create_image(
                 0, 0, image=self.render, anchor=tk.NW)
 
@@ -192,17 +218,28 @@ class Application(ttk.Frame):
             self.canvas_img.create_image(
                 0, 0, image=self.render, anchor=tk.NW)
 
+        # Repaint samples
+        if self.pix_coords is not None:
+            for ps in self.pix_coords:
+                self.canvas_img.create_oval(ps[1], ps[0], ps[1], ps[0],
+                                            fill='dark slate gray')
+
         # Repaint classes
         for i, cl in enumerate(self.class_centers, 1):
-            self.canvas_img.create_text(*cl, text=str(i))
+            # self.canvas_img.create_text(*cl, text=str(i), fill='wheat1')
+            wit = self.canvas_img.create_text(*cl, text=str(i), fill='black')
+            wir = self.canvas_img.create_rectangle(self.canvas_img.bbox(wit),
+                                                   fill="wheat1")
+            self.canvas_img.tag_lower(wir, wit)
 
         # Repaint X
-        # Horizontal
         if self.x:
             self.canvas_img.create_line(self.x[0] - 10, self.x[1],
-                                        self.x[0] + 10, self.x[1], fill='red')
+                                        self.x[0] + 10, self.x[1],
+                                        fill='dodger blue')
             self.canvas_img.create_line(self.x[0], self.x[1] - 10,
-                                        self.x[0], self.x[1] + 10, fill='red')
+                                        self.x[0], self.x[1] + 10,
+                                        fill='dodger blue')
 
 
 def run_app():
