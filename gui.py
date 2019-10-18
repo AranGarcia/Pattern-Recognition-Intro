@@ -176,13 +176,16 @@ class Application(ttk.Frame):
         amount = self.var_apc.get()
         if not self.img_file_name or amount <= 0 or not self.class_centers:
             return
-        pixs, classes = imgds.get_class_samples(
-            self.class_centers, amount)
+
+        if self.pix_samples is None or self.pix_classes is None:
+            self.pix_samples, self.pix_classes, self.pix_coords = \
+                imgds.get_class_samples(self.class_centers, amount)
+            self.__repaint_image()
 
         cm = self.var_class_method.get()
         em = self.var_eval_method.get()
         imgclasif.validate(
-            pixs, classes, amount, imgclasif.ClassifMethod(cm),
+            self.pix_samples, self.pix_classes, amount, imgclasif.ClassifMethod(cm),
             imgclasif.EvalMethod(em))
 
     def __click_add_class(self, event):
