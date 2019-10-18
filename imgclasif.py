@@ -114,14 +114,12 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC,
 
 
 def _calculate_centers(x_train, y_train):
-    class_labels=np.unique(y_train)
-    centers=[]
+    class_labels = np.unique(y_train)
+    centers = np.zeros((len(class_labels), x_train.shape[1]))
 
     # Calculate means for all classes
-    for c in class_labels:
-        x_class=x_train[y_train == c]
-        # Mean of columns
-        centers.append(x_class.mean(axis=0))
+    for i, c in enumerate(class_labels):
+        centers[i] = x_train[y_train == c].mean(axis=0)
 
     return centers, class_labels
 
