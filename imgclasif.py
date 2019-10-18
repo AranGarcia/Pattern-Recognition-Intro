@@ -80,27 +80,23 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC,
                 selected_x.extend(subx[idxs])
                 selected_y.extend(suby[idxs])
 
-            # This is the hard part
             x_train, x_test, y_train, y_test = train_test_split(
                 np.array(selected_x), np.array(selected_y), test_size=0.5)
 
             y_hat = clasif(x_test, x_train, y_train)
             cms[i] = confusion_matrix(y_test, y_hat)
         cm = cms.mean(axis=0)
+    elif eval_method == EvalMethod.LOO:
+        xmask = np.ma.array(X, mask=False)
+        ymask = np.ma.array(y, mask=False)
 
-    # elif eval_method == EvalMethod.LOO:
-    #     cms = np.zeros((X.shape[0], num_classes, num_classes))
-    #     xmask = np.ma.array(X, mask=False)
-    #     ymask = np.ma.array(y, mask=False)
-    #
-    #     for i, xt in enumerate(X):
-    #         xmask.mask[i] = ymask.mask[i] = True
-    #         x_i = X[i]
-    #         y_hat = clasif(x_i, xmask, ymask)
-    #         cms[i] = confusion_matrix(y_hat, np.ma.compress(ymask))
-    #         xmask.mask[i] = ymask.mask[i] = False
-    #
-    #     cm = cms.mean(axis=0)
+        y_hat = np.zeros(y.shape)
+        mask = np.tile(True, y_hat.size)
+        for i, xt in enumerate(X):
+            mask[i] = False
+            y_hat[i] = clasif(X[i][np.newaxis], X[mask], y[mask])
+            mask[i] = True
+        cm = confusion_matrix(y, y_hat)
     else:
         raise ValueError(f'Unkown evaluation method: {eval_method}')
 
