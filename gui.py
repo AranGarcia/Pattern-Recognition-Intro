@@ -7,11 +7,11 @@ import imgclasif
 import imgds
 
 
-class Application(ttk.Frame):
-    """docstring for Application."""
+class SupervisedApplication(ttk.Frame):
+    """docstring for SupervisedApplication."""
 
     def __init__(self, master=None):
-        super(Application, self).__init__(master)
+        super(SupervisedApplication, self).__init__(master)
         self.create_widgets()
         self.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.TRUE)
         self.render = None
@@ -119,6 +119,7 @@ class Application(ttk.Frame):
     def __load_image(self):
         fname = self.var_img_path.get()
         if not fname:
+            messagebox.showinfo(message='Please specify image path.')
             return
 
         self.canvas_img.delete('all')
@@ -185,7 +186,8 @@ class Application(ttk.Frame):
         cm = self.var_class_method.get()
         em = self.var_eval_method.get()
         imgclasif.validate(
-            self.pix_samples, self.pix_classes, amount, imgclasif.ClassifMethod(cm),
+            self.pix_samples, self.pix_classes, amount, imgclasif.ClassifMethod(
+                cm),
             imgclasif.EvalMethod(em))
 
     def __click_add_class(self, event):
@@ -245,8 +247,248 @@ class Application(ttk.Frame):
                                         fill='dodger blue')
 
 
+class UnsupervisedApplication(ttk.Frame):
+    """docstring for UnsupervisedApplication."""
+
+    def __init__(self, master=None):
+        super(UnsupervisedApplication, self).__init__(master)
+        self.create_widgets()
+        self.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.TRUE)
+        self.render = None
+        self.img_file_name = None
+        self.pix_samples = None
+        self.pix_coords = None
+        self.x = None
+
+    def create_widgets(self):
+        # File selection
+        #   Variables:
+        self.var_img_path = tk.StringVar()
+        #   Button: browse
+        self.btn_browse = ttk.Button(
+            self, text='Browse', command=self.__browse_image)
+        self.btn_browse.grid(row=0, column=0, sticky=tk.W)
+        #   Button: load
+        self.btn_load = ttk.Button(
+            self, text='Load', command=self.__load_image)
+        self.btn_load.grid(row=0, column=1)
+        #   Entry: file path
+        self.entry_img_path = ttk.Entry(
+            self, width=100, textvariable=self.var_img_path)
+        self.entry_img_path.grid(row=0, column=2, sticky=tk.W + tk.E)
+
+        # Algorithm selection
+        #   Frame:
+        self.frame_class = ttk.Frame(self)
+        self.frame_class.grid(
+            row=1, column=0, columnspan=2, sticky=tk.NW)
+        #   Variables:
+        self.var_class_method = tk.StringVar()
+        self.var_eval_method = tk.StringVar()
+        #   Label: Classification method
+        self.lbl_class_method = tk.Label(
+            self.frame_class, text='Classification Method:')
+        self.lbl_class_method.grid(row=0, column=0, sticky=tk.W)
+        #   Combo: Classification method selection
+        self.combo_class_method = ttk.Combobox(
+            self.frame_class, textvariable=self.var_class_method,
+            state='readonly', values=self.__get_methods(
+                imgclasif.UnsupervisedMethod))
+        self.combo_class_method.current(0)
+        self.combo_class_method.grid(row=1, column=0)
+        #   Label: Evaluation Method
+        self.lbl_eval_method = tk.Label(
+            self.frame_class, text='Evaluation Method:')
+        self.lbl_eval_method.grid(row=2, column=0, sticky=tk.W)
+        #   Combo: Evaluation method selection
+        self.combo_eval_method = ttk.Combobox(
+            self.frame_class, textvariable=self.var_eval_method,
+            state='readonly',
+            values=self.__get_methods(imgclasif.EvalMethod))
+        self.combo_eval_method.current(0)
+        self.combo_eval_method.grid(row=3, column=0)
+
+        ##########
+        # Inputs #
+        ##########
+
+        #   Label: Number of clusters
+        self.lbl_nk = ttk.Label(
+            self.frame_class, text='Clusters:')
+        self.lbl_nk.grid(row=6, column=0, sticky=tk.W)
+        #   Entry: Number of clusters
+        self.var_nk = tk.IntVar()
+        self.var_nk.set(300)
+        self.nk = ttk.Entry(
+            self.frame_class, textvariable=self.var_nk, width=10,
+            state='readonly ')
+        self.nk.grid(row=7, column=0)
+
+        #   Label: Threshold
+        self.lbl_thres = ttk.Label(
+            self.frame_class, text='Threshold:')
+        self.lbl_thres.grid(row=8, column=0, sticky=tk.W)
+        #   Entry: Threshold
+        self.var_thres = tk.IntVar()
+        self.var_thres.set(300)
+        self.entry_apc = ttk.Entry(
+            self.frame_class, textvariable=self.var_thres, width=10,
+            state='readonly ')
+        self.entry_apc.grid(row=9, column=0)
+
+        #   Label: Number of samples
+        self.lbl_apc = ttk.Label(
+            self.frame_class, text='Number of samples:')
+        self.lbl_apc.grid(row=10, column=0, sticky=tk.W)
+        #   Entry: Number of samples
+        self.var_apc = tk.IntVar()
+        self.var_apc.set(300)
+        self.entry_apc = ttk.Entry(
+            self.frame_class, textvariable=self.var_apc, width=10,
+            state='readonly ')
+        self.entry_apc.grid(row=11, column=0)
+
+        ###########
+        # Buttons #
+        ###########
+        #   Button: Get samples
+        self.btn_classify = ttk.Button(
+            self.frame_class, text='Sample', command=self.__classify)
+        self.btn_classify.grid(row=13, column=0)
+        #   Button: Classify
+        self.btn_classify = ttk.Button(
+            self.frame_class, text='Classify', command=self.__classify)
+        self.btn_classify.grid(row=15, column=0)
+        #   Button: Evaluate
+        self.btn_evaluate = ttk.Button(
+            self.frame_class, text='Evaluate', command=self.__evaluate)
+        self.btn_evaluate.grid(row=17, column=0)
+        #   Button: Reset classes
+        self.btn_reset = ttk.Button(
+            self.frame_class, text='Reset', command=self.__reset)
+        self.btn_reset.grid(row=19, column=0)
+
+        self.frame_class.grid_rowconfigure(8, minsize=20)
+        self.frame_class.grid_rowconfigure(12, minsize=20)
+        self.frame_class.grid_rowconfigure(14, minsize=20)
+        self.frame_class.grid_rowconfigure(16, minsize=20)
+        self.frame_class.grid_rowconfigure(18, minsize=20)
+
+        # Image display
+        #   Canvas
+        self.canvas_img = tk.Canvas(self)
+        self.canvas_img.bind('<Button-1>', self.__click_add_x)
+        self.canvas_img.grid(row=1, column=2)
+
+    def __browse_image(self):
+        img_name = filedialog.askopenfilename(title='Select an image')
+        self.var_img_path.set(img_name)
+
+    def __classify(self):
+        '''
+        Classifies a point in the image according to previously selected
+        classes.
+        '''
+        amount = self.var_apc.get()
+        if not self.img_file_name:
+            # TODO: Display a warning or something.
+            return
+        if amount <= 0:
+            # TODO: Display a warning or something.
+            return
+        if self.class_centers is None:
+            # TODO: Display a warning or something.
+            return
+        if self.x is None:
+            # TODO: Display a warning or something.
+            return
+        if self.pix_samples is None or self.pix_classes is None:
+            self.pix_samples, self.pix_classes, self.pix_coords = \
+                imgds.get_class_samples(self.class_centers, amount)
+            self.__repaint_image()
+        cm = self.var_class_method.get()
+
+        pred = imgclasif.classify(
+            [imgds.get_sample(self.x)], self.pix_samples,
+            self.pix_classes, imgclasif.ClassifMethod(cm))
+
+        messagebox.showinfo(
+            f'{cm} Result', f'Pixel {self.x} belongs to class {pred}')
+
+    def __click_add_x(self, event):
+        self.x = (event.x, event.y)
+        self.__repaint_image()
+
+    def __evaluate(self):
+        '''
+        Evaluate how well the selected algorithm classifies by showing a bar
+        plot of the percentages each class got classified correctly.
+        '''
+        amount = self.var_apc.get()
+        if not self.img_file_name or amount <= 0 or not self.class_centers:
+            return
+
+        if self.pix_samples is None or self.pix_classes is None:
+            self.pix_samples, self.pix_classes, self.pix_coords = \
+                imgds.get_class_samples(self.class_centers, amount)
+            self.__repaint_image()
+
+        cm = self.var_class_method.get()
+        em = self.var_eval_method.get()
+        imgclasif.validate(self.pix_samples, self.pix_classes, 
+                           amount, imgclasif.ClassifMethod(cm),
+                           imgclasif.EvalMethod(em))
+
+    def __get_methods(self, enum_methods):
+        methods = []
+        for cm in enum_methods:
+            methods.append(cm.value)
+
+        return methods
+
+    def __load_image(self):
+        fname = self.var_img_path.get()
+        if not fname:
+            messagebox.showinfo(message='Please specify image path.')
+            return
+
+        self.__reset()
+        self.canvas_img.delete('all')
+        self.canvas_img['cursor'] = 'target'
+        try:
+            load = Image.open(fname)
+        except FileNotFoundError:
+            print('File', fname, 'doesn\'t exist.')
+            return
+        imgds.init(fname)
+        self.img_file_name = fname
+
+        self.render = ImageTk.PhotoImage(load)
+        self.canvas_img.create_image(0, 0, image=self.render, anchor=tk.NW)
+        self.canvas_img.config(width=load.size[0], height=load.size[1])
+
+    def __load_samples(self):
+        pass
+
+    def __reset(self):
+        self.class_centers.clear()
+        self.pix_coords = None
+        self.pix_samples = None
+        self.x = None
+
+        self.canvas_img.delete('all')
+        if self.render is not None:
+            self.canvas_img.create_image(
+                0, 0, image=self.render, anchor=tk.NW)
+
+
 def run_app():
     root = tk.Tk()
     root.title('Validación de Modelos')
-    a = Application(root)
+    nb = ttk.Notebook(root)
+    sa = SupervisedApplication(root)
+    ua = UnsupervisedApplication(root)
+    nb.add(sa, text='Supervised')
+    nb.add(ua, text='Unsupervised')
+    nb.pack()
     root.mainloop()
