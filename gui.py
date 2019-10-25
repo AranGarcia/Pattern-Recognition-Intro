@@ -119,7 +119,7 @@ class SupervisedApplication(ttk.Frame):
     def __load_image(self):
         fname = self.var_img_path.get()
         if not fname:
-            messagebox.showinfo(message='Please specify image path.')
+            messagebox.showinfo('Image', 'Please specify image path.')
             return
 
         self.canvas_img.delete('all')
@@ -185,10 +185,8 @@ class SupervisedApplication(ttk.Frame):
 
         cm = self.var_class_method.get()
         em = self.var_eval_method.get()
-        imgclasif.validate(
-            self.pix_samples, self.pix_classes, amount, imgclasif.ClassifMethod(
-                cm),
-            imgclasif.EvalMethod(em))
+        imgclasif.validate(self.pix_samples, self.pix_classes, amount,
+                           imgclasif.ClassifMethod(cm), imgclasif.EvalMethod(em))
 
     def __click_add_class(self, event):
         '''Adds the classes to the image in the canvas'''
@@ -256,9 +254,9 @@ class UnsupervisedApplication(ttk.Frame):
         self.pack(side=tk.TOP, fill=tk.BOTH, expand=tk.TRUE)
         self.render = None
         self.img_file_name = None
-        self.pix_samples = None
-        self.pix_coords = None
         self.x = None
+        self.pix_coords = []
+        self.pix_samples = []
 
     def create_widgets(self):
         # File selection
@@ -313,48 +311,46 @@ class UnsupervisedApplication(ttk.Frame):
         ##########
 
         #   Label: Number of clusters
-        self.lbl_nk = ttk.Label(
-            self.frame_class, text='Clusters:')
+        self.lbl_nk = ttk.Label(self.frame_class, text='Clusters:')
         self.lbl_nk.grid(row=6, column=0, sticky=tk.W)
         #   Entry: Number of clusters
         self.var_nk = tk.IntVar()
         self.var_nk.set(300)
-        self.nk = ttk.Entry(
+        self.entry_nk = ttk.Entry(
             self.frame_class, textvariable=self.var_nk, width=10,
             state='readonly ')
-        self.nk.grid(row=7, column=0)
+        self.entry_nk.grid(row=7, column=0)
+
+        #   Label: Number of samples
+        self.lbl_nsamples = ttk.Label(
+            self.frame_class, text='Number of samples:')
+        self.lbl_nsamples.grid(row=8, column=0, sticky=tk.W)
+        #   Entry: Number of samples
+        self.var_nsamples = tk.IntVar()
+        self.var_nsamples.set(300)
+        self.entry_nsamples = ttk.Entry(
+            self.frame_class, textvariable=self.var_nsamples, width=10,
+            state='readonly ')
+        self.entry_nsamples.grid(row=9, column=0)
 
         #   Label: Threshold
-        self.lbl_thres = ttk.Label(
-            self.frame_class, text='Threshold:')
-        self.lbl_thres.grid(row=8, column=0, sticky=tk.W)
+        self.lbl_thres = ttk.Label(self.frame_class, text='Threshold:')
+        self.lbl_thres.grid(row=10, column=0, sticky=tk.W)
         #   Entry: Threshold
         self.var_thres = tk.IntVar()
         self.var_thres.set(300)
-        self.entry_apc = ttk.Entry(
+        self.entry_thres = ttk.Entry(
             self.frame_class, textvariable=self.var_thres, width=10,
             state='readonly ')
-        self.entry_apc.grid(row=9, column=0)
-
-        #   Label: Number of samples
-        self.lbl_apc = ttk.Label(
-            self.frame_class, text='Number of samples:')
-        self.lbl_apc.grid(row=10, column=0, sticky=tk.W)
-        #   Entry: Number of samples
-        self.var_apc = tk.IntVar()
-        self.var_apc.set(300)
-        self.entry_apc = ttk.Entry(
-            self.frame_class, textvariable=self.var_apc, width=10,
-            state='readonly ')
-        self.entry_apc.grid(row=11, column=0)
+        self.entry_thres.grid(row=11, column=0)
 
         ###########
         # Buttons #
         ###########
         #   Button: Get samples
-        self.btn_classify = ttk.Button(
-            self.frame_class, text='Sample', command=self.__classify)
-        self.btn_classify.grid(row=13, column=0)
+        self.btn_sample = ttk.Button(
+            self.frame_class, text='Sample', command=self.__random_samples)
+        self.btn_sample.grid(row=13, column=0)
         #   Button: Classify
         self.btn_classify = ttk.Button(
             self.frame_class, text='Classify', command=self.__classify)
@@ -368,7 +364,7 @@ class UnsupervisedApplication(ttk.Frame):
             self.frame_class, text='Reset', command=self.__reset)
         self.btn_reset.grid(row=19, column=0)
 
-        self.frame_class.grid_rowconfigure(8, minsize=20)
+        self.frame_class.grid_rowconfigure(10, minsize=20)
         self.frame_class.grid_rowconfigure(12, minsize=20)
         self.frame_class.grid_rowconfigure(14, minsize=20)
         self.frame_class.grid_rowconfigure(16, minsize=20)
@@ -378,6 +374,7 @@ class UnsupervisedApplication(ttk.Frame):
         #   Canvas
         self.canvas_img = tk.Canvas(self)
         self.canvas_img.bind('<Button-1>', self.__click_add_x)
+        self.canvas_img.bind('<Button-3>', self.__click_add_sample)
         self.canvas_img.grid(row=1, column=2)
 
     def __browse_image(self):
@@ -386,17 +383,9 @@ class UnsupervisedApplication(ttk.Frame):
 
     def __classify(self):
         '''
-        Classifies a point in the image according to previously selected
-        classes.
+        Applies unsupervised classification to the dataset.
         '''
-        amount = self.var_apc.get()
         if not self.img_file_name:
-            # TODO: Display a warning or something.
-            return
-        if amount <= 0:
-            # TODO: Display a warning or something.
-            return
-        if self.class_centers is None:
             # TODO: Display a warning or something.
             return
         if self.x is None:
@@ -416,7 +405,20 @@ class UnsupervisedApplication(ttk.Frame):
             f'{cm} Result', f'Pixel {self.x} belongs to class {pred}')
 
     def __click_add_x(self, event):
+        if not self.render:
+            return
+
         self.x = (event.x, event.y)
+        self.__repaint_image()
+
+    def __click_add_sample(self, event):
+        # First validate
+        if not self.render:
+            return
+        
+        sample = imgds.get_sample((event.x, event.y))
+        self.pix_coords.append((event.x, event.y))
+        self.pix_samples.append(sample)
         self.__repaint_image()
 
     def __evaluate(self):
@@ -435,7 +437,7 @@ class UnsupervisedApplication(ttk.Frame):
 
         cm = self.var_class_method.get()
         em = self.var_eval_method.get()
-        imgclasif.validate(self.pix_samples, self.pix_classes, 
+        imgclasif.validate(self.pix_samples, self.pix_classes,
                            amount, imgclasif.ClassifMethod(cm),
                            imgclasif.EvalMethod(em))
 
@@ -467,13 +469,58 @@ class UnsupervisedApplication(ttk.Frame):
         self.canvas_img.create_image(0, 0, image=self.render, anchor=tk.NW)
         self.canvas_img.config(width=load.size[0], height=load.size[1])
 
-    def __load_samples(self):
-        pass
+    def __random_samples(self):
+        # First validate
+        if not self.render:
+            messagebox.showerror('Samples:', 'Image not loaded.')
+            return
+        try:
+            amount = self.var_nsamples.get()
+        except:
+            messagebox.showerror('Samples:', 'Invalid input.')
+            return
+
+        if amount <= 0:
+            messagebox.showerror('Samples:', 'Please specify image path.')
+            return
+
+        samples, coords = imgds.get_n_samples(amount)
+
+        self.pix_samples.extend(samples)
+        self.pix_coords.extend(coords)
+        self.__repaint_image()
+
+    def __repaint_image(self):
+        self.canvas_img.delete('all')
+
+        if self.render:
+            self.canvas_img.create_image(
+                0, 0, image=self.render, anchor=tk.NW)
+
+        # Repaint samples
+        if self.pix_coords is not None:
+            for ps in self.pix_coords:
+                self.canvas_img.create_line(ps[0] - 10, ps[1],
+                                        ps[0] + 10, ps[1],
+                                        fill='dark slate gray')
+                self.canvas_img.create_line(ps[0], ps[1] - 10,
+                                        ps[0], ps[1] + 10,
+                                        fill='dark slate gray')
+
+        # Repaint cluster centers
+
+        # Repaint X
+        if self.x:
+            self.canvas_img.create_line(self.x[0] - 10, self.x[1],
+                                        self.x[0] + 10, self.x[1],
+                                        fill='dodger blue')
+            self.canvas_img.create_line(self.x[0], self.x[1] - 10,
+                                        self.x[0], self.x[1] + 10,
+                                        fill='dodger blue')
 
     def __reset(self):
-        self.class_centers.clear()
-        self.pix_coords = None
-        self.pix_samples = None
+        self.pix_coords.clear()
+        self.pix_samples.clear()
         self.x = None
 
         self.canvas_img.delete('all')
