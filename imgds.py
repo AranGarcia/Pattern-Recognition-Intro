@@ -62,9 +62,7 @@ def get_n_samples(n):
     x_arr = np.random.randint(0, _IMG.shape[1], n)
     y_arr = np.random.randint(0, _IMG.shape[0], n)
 
-    print(_IMG.shape)
-    print(x_arr, y_arr)
-    return _IMG[y_arr, x_arr], np.dstack((x_arr, y_arr))
+    return _IMG[y_arr, x_arr], np.stack((x_arr, y_arr), axis=1)
 
 
 def get_sample(coord):
