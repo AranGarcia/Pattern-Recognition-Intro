@@ -11,9 +11,9 @@ def init(fname):
 
 def get_class_samples(centers, apc, sd=10):
     '''
-    Given an image file path, this function returns neighboring pixels around
-    chosen centers, using a normal distribution around the x,y axis of the
-    image with standard deviation of sd.
+    This function returns neighboring pixels around chosen centers,
+    using a normal distribution around the x,y axis of the image with
+    standard deviation of sd.
 
     get_img_samples() -> pix, classes, coords
     '''
@@ -24,7 +24,7 @@ def get_class_samples(centers, apc, sd=10):
     # R, G, B
     class_samples = []
     positions = []
-    for i, c in enumerate(centers):
+    for c in enumerate(centers):
         # Sample coordinates
         x_arr = np.random.normal(loc=c[1], scale=sd, size=apc)
         y_arr = np.random.normal(loc=c[0], scale=sd, size=apc)
@@ -50,9 +50,31 @@ def get_class_samples(centers, apc, sd=10):
     return samps, class_vector, np.concatenate(positions)
 
 
+def get_n_samples(n):
+    '''
+    Returns n mount of randomly pixels of the image with
+    '''
+    try:
+        _IMG.shape
+    except Exception:
+        raise ValueError('Image not intialized.')
+
+    x_arr = np.random.randint(0, _IMG.shape[1], n)
+    y_arr = np.random.randint(0, _IMG.shape[0], n)
+
+    print(_IMG.shape)
+    print(x_arr, y_arr)
+    return _IMG[y_arr, x_arr], np.dstack((x_arr, y_arr))
+
+
 def get_sample(coord):
     global _IMG
     try:
         return _IMG[coord[1], coord[0]]
     except Exception as e:
         raise ValueError(f'Unable to sample image: {e}')
+
+
+if __name__ == "__main__":
+    init(r'C:/Users/docto/OneDrive/Documentos/escuela/pattern_recognition/imagenes/peppers.png')
+    print(get_n_samples(5))
