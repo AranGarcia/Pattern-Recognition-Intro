@@ -14,10 +14,13 @@ class ClassifMethod(Enum):
     """docstring for ClassificationMethod."""
     EUC = 'Euclidean'
     MAH = 'Mahalanobis'
-    # PRB = 'Probabilistic'
+    PRB = 'Probabilistic'
     KNN = 'KNN'
+
+
+class UnsupervisedMethod(Enum):
     HCL = 'Hierarchical'
-    ITE = 'Iterative'
+    CHA = 'Chain'
     KMN = 'K-Means'
 
 
@@ -28,7 +31,6 @@ class EvalMethod(Enum):
     LOO = 'Leave One Out'
 
 
-# TODO: Might not be useful
 def classify(x, pixels, classes, method=ClassifMethod.EUC):
     x = np.array(x)
     pixels = np.array(pixels)
@@ -38,16 +40,23 @@ def classify(x, pixels, classes, method=ClassifMethod.EUC):
         return _classify_distance(x, pixels, classes)
     elif method == ClassifMethod.MAH:
         return _classify_distance(x, pixels, classes, 'mahalanobis')
-    # elif method == ClassifMethod.PRB:
-    #     return _classify_probabilistic(x, pixels, classes)
+    elif method == ClassifMethod.PRB:
+        return _classify_probabilistic(x, pixels, classes)
     elif method == ClassifMethod.KNN:
-        return _classify_knn(x, pixels, classes)
-    elif method == ClassifMethod.HCL:
-        return _classify_hierarchical(x, pixels, classes)
-    elif method == ClassifMethod.ITE:
-        return _classify_iterative(x, pixels, classes)
-    elif method == ClassifMethod.KMN:
-        return _classify_kmeans(x, pixels, classes)
+        return _classify_knn(x, pixels, 5)
+    else:
+        raise ValueError(f'Unkown method: {method}')
+
+
+def clusterize(pixels, k=None, method=None, thres=None):
+    pixels = np.array(pixels)
+
+    if method == UnsupervisedMethod.HCL:
+        return _classify_hierarchical(pixels, k)
+    elif method == UnsupervisedMethod.CHA:
+        return _classify_chain(pixels, thres)
+    elif method == UnsupervisedMethod.KMN:
+        return _classify_kmeans(pixels, k)
     else:
         raise ValueError(f'Unkown method: {method}')
 
@@ -113,7 +122,7 @@ def validate(X, y, spc, class_method=ClassifMethod.EUC,
     plt.show()
 
 
-def _calculate_centers(x_train, y_train):
+def calculate_centers(x_train, y_train):
     class_labels = np.unique(y_train)
     centers = np.zeros((len(class_labels), x_train.shape[1]))
 
@@ -124,8 +133,13 @@ def _calculate_centers(x_train, y_train):
     return centers, class_labels
 
 
+def nearest_cluster(x, centers):
+    dists = cdist(x, centers)
+    return dists.argmin(axis=1)
+
+
 def _classify_distance(x, x_train, y_train, met='euclidean'):
-    centers, class_labels = _calculate_centers(x_train, y_train)
+    centers, class_labels = calculate_centers(x_train, y_train)
     dists = cdist(x, centers, metric=met)
 
     return class_labels[dists.argmin(axis=1)]
@@ -136,89 +150,99 @@ def _classify_probabilistic(x, x_train, y_train):
     '''
     Deprecated: This one sucks
     '''
-    centers, class_labels = _calculate_centers(x_train, y_train)
+    centers, class_labels = calculate_centers(x_train, y_train)
     m_distances = cdist(x[np.newaxis], centers, metric='mahalanobis')[0]
     covs = [np.cov(x_train[y_train == cl]) for cl in class_labels]
 
-    pr_dist = []
-    for i, cl in enumerate(class_labels):
-        temp = 1 / (np.pi ** (class_labels.shape[0] / 2))
-        temp *= np.sqrt(np.linalg.det(covs[i]))
-        temp *= np.exp(m_distances[i] * -0.5)
-        pr_dist.append(temp)
-    print(pr_dist, np.argmax((pr_dist / sum(pr_dist)) * 100))
-    idx = np.argmax((pr_dist / sum(pr_dist)) * 100)
+    idx = np.argmax((m_distances / sum(m_distances)) * 100)
 
     return class_labels[idx]
 
 
-def _classify_knn(x, pixels, classes, k=5):
-    le = LabelEncoder()
-    classes_train = le.fit_transform(classes)
+def _classify_knn(x, x_train, y_train, k):
     clf = KNeighborsClassifier(n_neighbors=k)
-    clf.fit(pixels, classes_train)
-    y_hat = clf.predict(x)
-    return le.inverse_transform(y_hat)
+    clf.fit(x_train, y_train)
+    return clf.predict(x)
 
 
-def _classify_hierarchical(x, x_train, y_train):
-    y_labels = np.unique(y_train)
-    cluster = AgglomerativeClustering(n_clusters=len(y_labels))
-    cluster_labels = cluster.fit_predict(x_train)
-
-    centers = []
-    cen_labels = []
-    for cl in np.unique(cluster_labels):
-        x_class = x_train[cluster_labels == cl]
-        center = np.array([np.mean(x_class[:, x_col])
-                           for x_col in range(x_class.shape[1])])
-        centers.append(center)
-        cen_labels.append(y_train[list(cluster_labels).index(cl)])
-    distances = cdist(x, centers)
-    cen_labels = np.array(cen_labels)
-    return cen_labels[distances.argmin(axis=1)]
+########################
+# Unsupervised Methods #
+########################
 
 
-def _classify_iterative(x, x_train, y_train, thres=100):
+def _classify_hierarchical(x_train, k):
+    cluster = AgglomerativeClustering(n_clusters=k)
+    return cluster.fit_predict(x_train)
+
+
+def _classify_chain(x_train, thres=100):
     groups = [x_train[0][np.newaxis]]
     centers = [x_train[0]]
 
-    for i in range(1, x_train.shape[0]):
-        xt = x_train[i]
-        distances = cdist(xt[np.newaxis], centers)
+    for xi in x_train:
+        distances = cdist(xi[np.newaxis], centers)
 
-        if np.all(xt >= thres):
+        if np.all(xi > thres):
             # Create a new group
-            groups.append(xt)
-            centers.append(xt)
+            groups.append(xi[np.newaxis])
+            centers.append(xi)
         else:
-            idx = np.argmin(distances)
-            groups[idx] = np.vstack((xt, groups[idx]))
+            idx = distances.argmin()
+            groups[idx] = np.vstack((xi, groups[idx]))
             centers[idx] = groups[idx].mean(axis=0)
 
-    print(centers)
+    return cdist(x_train, centers).argmin(axis=1)
+
+def _classify_kmeans(x_train, k):
+    kmeans = KMeans(n_clusters=k).fit(x_train)
+    return kmeans.labels_
 
 
-def _classify_kmeans(x, x_train, y_train):
-    class_labels = np.unique(y_train)
-    kmeans = KMeans(n_clusters=len(class_labels)).fit(x_train)
-    km_labels = kmeans.labels_
-    y_hat = kmeans.predict(x)
+# For lack of a better name
+def _lloyd_correction(x, x_train, y_train, kcen, alpha=0.1, epochs=20, thres=100):
+    '''
+    This is supposed to improve KMeans by readjusting the centers.
 
-    return y_train[km_labels == y_hat][0]
+    kcen is a dictionary that has the label as a key that maps to a cluster
+    center.
+    '''
+    # TODO: Optimize by verifying instance
+    le = LabelEncoder()
+    le.fit(y_train)
+    y_labels = le.classes_
+    k_labels = kcen.keys()
+
+    # Verify that all data is correctly labeled
+    if y_labels.shape[0] != len(k_labels):
+        raise ValueError(
+            'the amount of labels must correspond to the cluster centers.')
+    if not np.all([yl in k_labels for yl in y_labels]):
+        raise ValueError(
+            'label of data must correspond to the labels of the clusters')
+
+    for i in range(epochs):
+        for xi in x_train:
+            pass
 
 
 classification_function = {
+    # Supervised
     ClassifMethod.EUC: _classify_distance,
     ClassifMethod.MAH: _classify_distance,
-    # ClassifMethod.PRB: _classify_probabilistic,
+    ClassifMethod.PRB: _classify_probabilistic,
     ClassifMethod.KNN: _classify_knn,
-    # Classify Iterative
-    ClassifMethod.KMN: _classify_kmeans
+    # Unsupervised
+    UnsupervisedMethod.HCL: _classify_hierarchical,
+    UnsupervisedMethod.KMN: _classify_kmeans
 }
 
 if __name__ == '__main__':
-    a = np.random.randint(0, 100, 40).reshape(20, 2)
-    b = np.repeat([1, 2, 3], [6, 7, 7])
-    print(_classify_probabilistic(
-        np.array([1, 1]), a, b))
+    xt = np.random.randint(0, 256, (20, 3))
+    y = np.random.randint(0, 3, 20)
+    kc = {
+        0: np.array([10, 10, 10]),
+        1: np.array([128, 128, 128]),
+        2: np.array([200, 200, 200])
+    }
+    _lloyd_correction(
+        np.array([[20, 20, 1], [6, 0, 0], [100, 3, 100]]), xt, y, kc)
