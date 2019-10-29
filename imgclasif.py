@@ -48,13 +48,13 @@ def classify(x, pixels, classes, method=ClassifMethod.EUC):
         raise ValueError(f'Unkown method: {method}')
 
 
-def clusterize(pixels, k=None, method=None, thres=None):
+def clusterize(pixels, k=None, method=None):
     pixels = np.array(pixels)
 
     if method == UnsupervisedMethod.HCL:
         return _classify_hierarchical(pixels, k)
     elif method == UnsupervisedMethod.CHA:
-        return _classify_chain(pixels, thres)
+        return _classify_chain(pixels, k)
     elif method == UnsupervisedMethod.KMN:
         return _classify_kmeans(pixels, k)
     else:
@@ -175,23 +175,56 @@ def _classify_hierarchical(x_train, k):
     return cluster.fit_predict(x_train)
 
 
-def _classify_chain(x_train, thres=100):
-    groups = [x_train[0][np.newaxis]]
-    centers = [x_train[0]]
+def _classify_chain(x_train, k, alpha=0.5):
+    '''
+    Disclaimer: I don't know why, but my teacher was the one who made the specifications for 
+    this function. It's main functionality is just to find the threshold value that meets the
+    the constraints (explicit amount of clusters).
+    '''
 
-    for xi in x_train:
-        distances = cdist(xi[np.newaxis], centers)
+    if not (0 < alpha < 1):
+        raise ValueError(f'invalid alpha value: {alpha}')
 
-        if np.all(xi > thres):
-            # Create a new group
-            groups.append(xi[np.newaxis])
-            centers.append(xi)
-        else:
-            idx = distances.argmin()
-            groups[idx] = np.vstack((xi, groups[idx]))
-            centers[idx] = groups[idx].mean(axis=0)
+    thres = 100
+    step = 100
+    unconverged = True
+    increment = True
+
+    while unconverged:
+        print(f'Thres: {thres}, step: {step}')
+
+        groups = [x_train[0][np.newaxis]]
+        centers = [x_train[0]]
+
+        for xi in x_train:
+            distances = cdist(xi[np.newaxis], centers)
+
+            if distances.min() > thres:
+                # Create a new group
+                groups.append(xi[np.newaxis])
+                centers.append(xi)
+            else:
+                idx = distances.argmin()
+                groups[idx] = np.vstack((xi, groups[idx]))
+                centers[idx] = groups[idx].mean(axis=0)
+        lc = len(centers)
+        if lc == k:
+            unconverged = False
+        elif lc > k:
+            thres += step
+            if not increment:
+                step /= 2
+                increment = True
+        elif lc < k:
+            thres -= step
+            if increment:
+                step /= 2
+                increment = False
+
+    print(f'Threshold value is {thres}.')
 
     return cdist(x_train, centers).argmin(axis=1)
+
 
 def _classify_kmeans(x_train, k):
     kmeans = KMeans(n_clusters=k).fit(x_train)

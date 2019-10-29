@@ -336,14 +336,18 @@ class UnsupervisedApplication(ttk.Frame):
             state='readonly ')
         self.entry_nsamples.grid(row=9, column=0)
 
-        #   Label: Threshold
-        self.lbl_thres = ttk.Label(self.frame_class, text='Threshold:')
-        self.lbl_thres.grid(row=10, column=0, sticky=tk.W)
+        #   Label: Chain centers
+        #   DISCLAIMER: Don't ask me why, my teacher forced me to add this as an input,
+        #               so the algorithm may return the threshold value under the restriction
+        #               of said amount of centers.
+        self.lbl_chain_k = ttk.Label(
+            self.frame_class, text='Chain: center amount')
+        self.lbl_chain_k.grid(row=10, column=0, sticky=tk.W)
         #   Entry: Threshold
-        self.var_thres = tk.IntVar()
-        self.var_thres.set(100)
+        self.var_chain_k = tk.IntVar()
+        self.var_chain_k.set(3)
         self.entry_thres = ttk.Entry(
-            self.frame_class, textvariable=self.var_thres, width=10,
+            self.frame_class, textvariable=self.var_chain_k, width=10,
             state='readonly ')
         self.entry_thres.grid(row=11, column=0)
 
@@ -372,10 +376,6 @@ class UnsupervisedApplication(ttk.Frame):
         self.btn_reset.grid(row=17, column=0)
 
         self.frame_class.grid_rowconfigure(10, minsize=20)
-        # self.frame_class.grid_rowconfigure(12, minsize=20)
-        # self.frame_class.grid_rowconfigure(14, minsize=20)
-        # self.frame_class.grid_rowconfigure(16, minsize=20)
-        # self.frame_class.grid_rowconfigure(18, minsize=20)
 
         # Image display
         #   Canvas
@@ -408,14 +408,15 @@ class UnsupervisedApplication(ttk.Frame):
 
         cm = self.var_class_method.get()
         k = self.var_nk.get()
-        t = self.var_thres.get()
+        chain_k = self.var_chain_k.get()
 
         if cm == imgclasif.UnsupervisedMethod.CHA.value:
-            labels = imgclasif.clusterize(
-                self.pix_samples, method=imgclasif.UnsupervisedMethod(cm), thres=t)
+            k = self.var_chain_k.get()
         else:
-            labels = imgclasif.clusterize(
-                self.pix_samples, k=k, method=imgclasif.UnsupervisedMethod(cm))
+            k = self.var_nk.get()
+
+        labels = imgclasif.clusterize(
+            self.pix_samples, k=k, method=imgclasif.UnsupervisedMethod(cm))
         self.k_centers, self.k_labels = imgclasif.calculate_centers(
             np.array(self.pix_coords), labels)
         self.__repaint_image()
